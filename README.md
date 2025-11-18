@@ -2,6 +2,9 @@
 
 # **The Ballgame of Xibalba — README**
 
+Hey @MMMMBanana and John
+
+
 ## 📜 Overview
 
 **The Ballgame of Xibalba** is an interactive text-adventure game based on the Mayan myth of the Hero Twins: **Hunahpu** and **Xbalanque**.
