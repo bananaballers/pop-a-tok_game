@@ -2,7 +2,7 @@
 
 # **The Ballgame of Xibalba — README**
 
-Hey @MMMMBanana and John
+Hey @MMMMBanana and John go to [this](#-future-improvements-optional-ideas) link to see the to-do list!
 
 
 ## 📜 Overview
