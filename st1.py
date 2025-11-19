@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 st.set_page_config(
         page_title="Popol Vuh: The Ballgame",
         page_icon="☀️",
-        layout="centered"
+        layout="wide"
     )
 
     #####################
@@ -230,7 +230,7 @@ def ballgame():
  try:
     with open("game.html", "r", encoding="utf-8") as f:
         html_code = f.read()
-    components.html(html_code, height=900, width=1400, scrolling=False)
+    components.html(html_code, height=900, width=None, scrolling=False)
  except FileNotFoundError:
     st.error("Error: 'game.html' not found. Please make sure the HTML file is in the same folder.")
 
