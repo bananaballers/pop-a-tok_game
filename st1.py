@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import time
+import os
 import streamlit.components.v1 as components
 
     # Configure page settings for a better game feel
@@ -13,6 +14,22 @@ st.set_page_config(
     #####################
     # Helper/Init functions
     #####################
+def render_scene_media(scene_name):
+    """Checks for a folder named after the scene and renders media files."""
+    if os.path.exists(scene_name) and os.path.isdir(scene_name):
+        # Get all files in the directory
+        files = sorted(os.listdir(scene_name))
+        
+        for file in files:
+            file_path = os.path.join(scene_name, file)
+            
+            # Check extensions and render accordingly
+            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                st.image(file_path, use_container_width=True)
+            elif file.lower().endswith(('.mp4', '.mov', '.webm')):
+                st.video(file_path)
+            elif file.lower().endswith(('.mp3', '.wav', '.ogg')):
+                st.audio(file_path)
 def initialize_state():
         if "scene" not in st.session_state:
             st.session_state.scene = "start"
@@ -311,6 +328,9 @@ initialize_state()
     # Show HUD on all screens except Start and Game Over (optional, but looks good)
 if st.session_state.scene not in ["start", "game_over", "victory"]:
         show_hud()
+
+    # Render Scene Media (Images/Video/Audio)
+render_scene_media(st.session_state.scene)
 
     # Scene Router
 if st.session_state.scene == "start":
