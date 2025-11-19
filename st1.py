@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import time
+import streamlit.components.v1 as components
 
     # Configure page settings for a better game feel
 st.set_page_config(
@@ -88,7 +89,7 @@ def crossroads():
 
         # Randomize button order to keep it fresh
         items = list(options.items())
-        
+
         display_values = [desc for key, desc in items]
 
         choice = st.radio("What will you do?", display_values)
@@ -122,7 +123,7 @@ def throne_room():
 
         options = {"1": "Sit on the Throne", "2": "Sit on the Floor"}
         items = list(options.items())
-        
+
         display_values = [desc for key, desc in items]
 
         choice = st.radio("Where will you sit?", display_values)
@@ -148,7 +149,7 @@ def house_of_gloom():
 
         options = {"1": "Let the torch burn normally", "2": "Swap flame for red Macaw feathers"}
         items = list(options.items())
-        
+
         display_values = [desc for key, desc in items]
 
         choice = st.radio("Solution:", display_values)
@@ -172,7 +173,7 @@ def house_of_cold():
 
         options = {"1": "Huddle together", "2": "Burn old pinecones"}
         items = list(options.items())
-        
+
         display_values = [desc for key, desc in items]
 
         choice = st.radio("Survival Strategy:", display_values)
@@ -195,7 +196,7 @@ def house_of_jaguars():
 
         options = {"1": "Fight with knife", "2": "Distract with bones"}
         items = list(options.items())
-        
+
         display_values = [desc for key, desc in items]
 
         choice = st.radio("Action:", display_values)
@@ -212,56 +213,48 @@ def house_of_jaguars():
                 st.rerun()
 
 def ballgame():
-        st.progress(85, text="The Ballgame")
-        st.header("🏟️ The Tlachtli Court")
-        st.write(f"**Round:** {st.session_state.rounds + 1} | **Score:** {st.session_state.score}")
-        st.write("The heavy rubber ball bounces on the stone court.")
+ st.header("THE TLACHTLI COURT")
+ st.write("The Lords of Xibalba sneer at you.")
+ st.write("'We will not play with mere words,' they shout.")
+ st.warning("'Prove your skill on the VISUAL COURT!'")
 
-        # Win/Loss Logic
-        if st.session_state.rounds >= 3:
-            if st.session_state.score >= 1:
-                st.warning("The Lords are furious you are winning! They cheat and end the game.")
-                if st.button("Face the Finale"):
-                    st.session_state.rounds = 0
-                    st.session_state.scene = "finale"
-                    st.rerun()
-            else:
-                st.session_state.game_over_reason = "You lost the ballgame to the Lords."
-                st.session_state.scene = "game_over"
-                st.rerun()
-            return
+ st.markdown("""
+**INSTRUCTIONS:**
+1. Play the game below.
+2. Defeat the Computer (Warrior 1 vs AI).
+3. Win 3 points to get the **Sacred Code**.
+4. Enter the code below to survive.
+""")
 
-        # Gameplay Options
-        options = {
-            "1": "High Lob",
-            "2": "Hip Strike (Solid)",
-            "3": "Low Slide"
-        }
-        items = list(options.items())
-        
-        display_values = [desc for key, desc in items]
+# 1. Load and Display the HTML Game (Iframe)
+ try:
+    with open("game.html", "r", encoding="utf-8") as f:
+        html_code = f.read()
+    components.html(html_code, height=900, width=1400, scrolling=False)
+ except FileNotFoundError:
+    st.error("Error: 'game.html' not found. Please make sure the HTML file is in the same folder.")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            choice = st.radio("Choose your move:", display_values, key=f"bg_{st.session_state.rounds}")
+# 2. Input Validation
+ st.write("---")
+ code_input = st.text_input("Enter the SACRED CODE here:")
 
-        with col2:
-            st.write("") # Spacer
-            st.write("")
-            if st.button("Strike Ball 🏐", key=f"play_{st.session_state.rounds}"):
-                selected_key = next(key for key, desc in items if desc == choice)
-
-                if selected_key == "2":
-                    st.success(">> SMACK! A perfect hit off the hip. You score!")
-                    st.session_state.score += 1
-                elif selected_key == "1":
-                    st.error(">> Too high! The Lords smash it back.")
-                else:
-                    st.error(">> Too low! You scrape your knee.")
-
-                st.session_state.rounds += 1
-                time.sleep(1) # Slight pause for effect
-                st.rerun()
+ if st.button("Verify Sacred Code"):
+    if not code_input:
+        st.warning("You must enter a code.")
+    elif code_input.startswith("TLACHTLI") and "P1" in code_input:
+        st.balloons()
+        st.success(f"ACCEPTED: {code_input}")
+        st.write("The Lords recoil in shock! You have defeated them on the court!")
+        time.sleep(2) # Short pause for effect
+        st.session_state.scene = "finale"
+        st.rerun()
+    elif "P2" in code_input:
+        st.error("The code turns red and crumbles. The Lords defeated you.")
+        st.session_state.death_reason = "Lost the ballgame."
+        st.session_state.scene = "game_over"
+        st.rerun()
+    else:
+        st.error("The Lords laugh. 'That is not a valid code!'")
 
 def finale():
         st.progress(95, text="The Grand Trick")
@@ -271,7 +264,7 @@ def finale():
 
         options = {"1": "Burn them and REVIVE them", "2": "Burn them and DO NOT revive them"}
         items = list(options.items())
-        
+
         display_values = [desc for key, desc in items]
 
         choice = st.radio("The Final Decision:", display_values)
