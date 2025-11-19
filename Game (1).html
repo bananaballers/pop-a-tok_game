@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tlachtli - The Sacred Court</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Cinzel Decorative', serif;
+            background-color: #1c1917;
+            overflow: hidden;
+            /* Simple stone texture pattern */
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23292524' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        canvas {
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+            background-color: #44403c; /* Stone color */
+            cursor: none; /* Hide cursor over game */
+        }
+
+        .stone-text {
+            text-shadow: 3px 3px 0px #000;
+            color: #f59e0b; /* Gold */
+        }
+        
+        .texture-overlay {
+            pointer-events: none;
+            background: radial-gradient(circle, transparent 40%, #000 100%);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex justify-center items-center relative select-none">
+
+    <div class="absolute inset-0 overflow-hidden -z-10 opacity-30">
+        <div class="absolute top-1/4 left-10 w-64 h-64 bg-yellow-600 rounded-full blur-[100px]"></div>
+        <div class="absolute bottom-1/4 right-10 w-64 h-64 bg-emerald-800 rounded-full blur-[100px]"></div>
+    </div>
+
+    <div id="game-container" class="relative p-2 bg-[#292524] border-4 border-[#78716c] shadow-2xl">
+        <div class="absolute -top-2 -left-2 w-8 h-8 border-t-4 border-l-4 border-yellow-600"></div>
+        <div class="absolute -top-2 -right-2 w-8 h-8 border-t-4 border-r-4 border-yellow-600"></div>
+        <div class="absolute -bottom-2 -left-2 w-8 h-8 border-b-4 border-l-4 border-yellow-600"></div>
+        <div class="absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4 border-yellow-600"></div>
+
+        <canvas id="pongCanvas" width="800" height="600" class="block border-2 border-[#1c1917]"></canvas>
+        
+        <div class="texture-overlay absolute inset-0"></div>
+
+        <div id="ui-layer" class="absolute inset-0 flex flex-col justify-center items-center pointer-events-none z-10">
+            
+            <div id="main-menu" class="bg-[#1c1917]/95 p-12 border-2 border-yellow-700 text-center pointer-events-auto shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-yellow-600 to-transparent"></div>
+                <div class="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-yellow-600 to-transparent"></div>
+
+                <h1 class="text-6xl mb-2 stone-text tracking-widest font-black">TLACHTLI</h1>
+                <p class="text-emerald-500 mb-8 text-sm tracking-[0.2em] uppercase font-bold">The Sacred Ball Game</p>
+                
+                <div class="space-y-6">
+                    <div id="difficulty-select" class="flex flex-col space-y-2">
+                        <label class="text-[#a8a29e] text-xs tracking-widest">CHALLENGE</label>
+                        <div class="flex space-x-2 justify-center">
+                            <button onclick="game.setDifficulty('easy')" id="diff-easy" class="px-2 py-2 bg-[#3f6212] text-white text-[10px] w-24 border border-[#84cc16]">INITIATE</button>
+                            <button onclick="game.setDifficulty('medium')" id="diff-medium" class="px-2 py-2 bg-[#44403c] text-[#a8a29e] text-[10px] w-24 opacity-60">WARRIOR</button>
+                            <button onclick="game.setDifficulty('hard')" id="diff-hard" class="px-2 py-2 bg-[#44403c] text-[#a8a29e] text-[10px] w-24 opacity-60">GODLIKE</button>
+                        </div>
+                    </div>
+
+                    <button onclick="game.start()" class="mt-8 px-8 py-4 bg-[#b45309] text-white font-bold tracking-widest hover:bg-[#92400e] transition w-full border-t border-b border-yellow-400 shadow-[0_0_20px_rgba(245,158,11,0.4)]">ENTER COURT</button>
+                </div>
+                <p class="text-[#57534e] text-[10px] mt-6 font-sans tracking-wider">WIN 3 POINTS FOR VICTORY</p>
+                <p class="text-[#57534e] text-[10px] mt-1 font-sans tracking-wider">W/S to Move</p>
+            </div>
+
+            <div id="game-over" class="hidden bg-[#1c1917]/95 p-10 border-2 border-yellow-600 text-center pointer-events-auto shadow-2xl max-w-md w-full relative z-50">
+                <h2 id="winner-text" class="text-4xl text-yellow-500 mb-2 font-black tracking-widest">VICTORY</h2>
+                <div class="w-full h-px bg-yellow-800 mb-6"></div>
+                
+                <div id="winner-code-container" class="hidden flex flex-col items-center space-y-2 mb-8">
+                    <p class="text-emerald-400 text-xs tracking-widest">SACRED CODE REVEALED:</p>
+                    <div class="bg-black p-4 w-full border border-emerald-700 rounded relative group">
+                        <code id="secret-code" class="text-2xl text-white font-mono tracking-widest select-all"></code>
+                        <div class="absolute top-0 right-0 bg-emerald-900 text-[8px] px-1 text-emerald-200">COPY THIS</div>
+                    </div>
+                    <p class="text-[#78716c] text-[10px]">Paste this into your Python script.</p>
+                </div>
+
+                <button onclick="game.resetToMenu()" class="px-6 py-3 bg-[#44403c] text-white font-bold hover:bg-[#57534e] transition border border-[#a8a29e]">RETURN TO TEMPLE</button>
+            </div>
+
+            <div id="hud" class="absolute top-6 w-full px-12 flex justify-between text-yellow-500 text-6xl font-black opacity-80 hidden" style="text-shadow: 0 0 20px rgba(0,0,0,0.8);">
+                <span id="score-1">0</span>
+                <div class="w-16 h-16 rounded-full border-4 border-[#57534e] opacity-50 flex items-center justify-center relative top-2">
+                    <div class="w-12 h-12 rounded-full border-2 border-[#292524]"></div>
+                </div>
+                <span id="score-2">0</span>
+            </div>
+            
+            <div id="powerup-text" class="absolute top-32 text-emerald-400 text-xl font-bold tracking-widest animate-pulse hidden drop-shadow-md">BLESSING RECEIVED</div>
+        </div>
+    </div>
+
+    <script>
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('pongCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = this.canvas.width;
+                this.height = this.canvas.height;
+                
+                this.state = 'menu';
+                this.difficulty = 'easy';
+                
+                this.paddles = [];
+                this.ball = null;
+                this.powerups = [];
+                this.particles = [];
+                
+                this.score1 = 0;
+                this.score2 = 0;
+                this.winningScore = 3;
+                
+                this.keys = {};
+                this.lastTime = 0;
+                this.powerupTimer = 0;
+
+                this.initInput();
+                this.loop = this.loop.bind(this);
+                requestAnimationFrame(this.loop);
+            }
+
+            initInput() {
+                window.addEventListener('keydown', e => this.keys[e.code] = true);
+                window.addEventListener('keyup', e => this.keys[e.code] = false);
+            }
+
+            setDifficulty(diff) {
+                this.difficulty = diff;
+                ['easy', 'medium', 'hard'].forEach(d => {
+                    const activeClass = "px-2 py-2 bg-[#b45309] text-white text-[10px] w-24 hover:bg-opacity-80 border border-yellow-400 shadow-lg";
+                    const inactiveClass = "px-2 py-2 bg-[#44403c] text-[#a8a29e] text-[10px] w-24 hover:bg-[#292524] border border-transparent opacity-60";
+                    
+                    if (d === 'easy') {
+                        document.getElementById('diff-easy').className = d === diff ? 
+                            "px-2 py-2 bg-[#3f6212] text-white text-[10px] w-24 border border-[#84cc16] shadow-lg" : 
+                            "px-2 py-2 bg-[#1a2e05] text-[#a8a29e] text-[10px] w-24 opacity-60";
+                    } else if (d === 'medium') {
+                        document.getElementById('diff-medium').className = d === diff ? 
+                            "px-2 py-2 bg-[#854d0e] text-white text-[10px] w-24 border border-yellow-600 shadow-lg" : 
+                            "px-2 py-2 bg-[#451a03] text-[#a8a29e] text-[10px] w-24 opacity-60";
+                    } else {
+                        document.getElementById('diff-hard').className = d === diff ? 
+                            "px-2 py-2 bg-[#7f1d1d] text-white text-[10px] w-24 border border-red-500 shadow-lg" : 
+                            "px-2 py-2 bg-[#450a0a] text-[#a8a29e] text-[10px] w-24 opacity-60";
+                    }
+                });
+            }
+
+            start() {
+                this.state = 'playing';
+                this.score1 = 0;
+                this.score2 = 0;
+                this.updateScoreUI();
+                
+                document.getElementById('main-menu').classList.add('hidden');
+                document.getElementById('game-over').classList.add('hidden');
+                document.getElementById('hud').classList.remove('hidden');
+                
+                this.resetEntities();
+            }
+
+            resetEntities() {
+                const paddleHeight = 120;
+                const paddleWidth = 20;
+                const margin = 30;
+
+                this.paddles = [
+                    new Paddle(margin, this.height/2 - paddleHeight/2, paddleWidth, paddleHeight, 'left'),
+                    new Paddle(this.width - margin - paddleWidth, this.height/2 - paddleHeight/2, paddleWidth, paddleHeight, 'right')
+                ];
+                
+                this.ball = new Ball(this.width/2, this.height/2);
+                this.powerups = [];
+            }
+
+            resetToMenu() {
+                this.state = 'menu';
+                document.getElementById('main-menu').classList.remove('hidden');
+                document.getElementById('game-over').classList.add('hidden');
+                document.getElementById('hud').classList.add('hidden');
+            }
+
+            update(dt) {
+                if (this.state !== 'playing') return;
+
+                // Powerups
+                this.powerupTimer += dt;
+                if (this.powerupTimer > 8000 && Math.random() < 0.008) {
+                    this.spawnPowerup();
+                    this.powerupTimer = 0;
+                }
+
+                this.ball.update(dt, this.height, this);
+                
+                // Particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update();
+                    if (this.particles[i].alpha <= 0) this.particles.splice(i, 1);
+                }
+
+                // Input - Player (Left Paddle)
+                if (this.keys['KeyW']) this.paddles[0].move(-1, this.height);
+                if (this.keys['KeyS']) this.paddles[0].move(1, this.height);
+
+                // AI (Right Paddle) - Always active
+                this.runAI(this.paddles[1], this.ball);
+
+                this.checkCollisions();
+
+                // Scoring
+                if (this.ball.x < 0) {
+                    this.score2++;
+                    this.updateScoreUI();
+                    this.checkWin();
+                    this.ball.reset(this.width, this.height);
+                    this.createGoalExplosion(0, this.height/2);
+                } else if (this.ball.x > this.width) {
+                    this.score1++;
+                    this.updateScoreUI();
+                    this.checkWin();
+                    this.ball.reset(this.width, this.height);
+                    this.createGoalExplosion(this.width, this.height/2);
+                }
+            }
+
+            createGoalExplosion(x, y) {
+                for (let i = 0; i < 50; i++) {
+                    this.particles.push(new Particle(x, y, '#f59e0b', 5));
+                }
+            }
+
+            runAI(paddle, ball) {
+                const center = paddle.y + paddle.height / 2;
+                let target = ball.y;
+                let speedFactor = 1;
+
+                if (this.difficulty === 'easy') speedFactor = 0.45;
+                else if (this.difficulty === 'medium') speedFactor = 0.75;
+                
+                if (ball.dx > 0) {
+                    if (target < center) paddle.move(-speedFactor, this.height);
+                    else paddle.move(speedFactor, this.height);
+                } else {
+                      // Return to center when ball is moving away
+                      const screenCenter = this.height / 2;
+                      if (Math.abs(screenCenter - center) > 20) {
+                          if (screenCenter < center) paddle.move(-speedFactor * 0.3, this.height);
+                          else paddle.move(speedFactor * 0.3, this.height);
+                      }
+                }
+            }
+
+            checkCollisions() {
+                this.paddles.forEach(p => {
+                    if (
+                        this.ball.x < p.x + p.width &&
+                        this.ball.x + this.ball.size > p.x &&
+                        this.ball.y < p.y + p.height &&
+                        this.ball.y + this.ball.size > p.y
+                    ) {
+                        this.ball.dx *= -1.05; 
+                        
+                        const hitPoint = (this.ball.y + this.ball.size/2) - (p.y + p.height/2);
+                        const normalizedHit = hitPoint / (p.height/2);
+                        this.ball.dy = normalizedHit * 12;
+
+                        if (this.ball.x < this.width / 2) this.ball.x = p.x + p.width + 1;
+                        else this.ball.x = p.x - this.ball.size - 1;
+
+                        this.createParticles(this.ball.x, this.ball.y, '#a8a29e');
+                    }
+                });
+
+                for (let i = this.powerups.length - 1; i >= 0; i--) {
+                    const p = this.powerups[i];
+                    if (
+                        this.ball.x < p.x + p.size &&
+                        this.ball.x + this.ball.size > p.x &&
+                        this.ball.y < p.y + p.size &&
+                        this.ball.y + this.ball.size > p.y
+                    ) {
+                        this.applyPowerup(p.type);
+                        this.powerups.splice(i, 1);
+                    }
+                }
+            }
+
+            spawnPowerup() {
+                const r = Math.random();
+                let type = 'big_paddle';
+                if (r < 0.33) type = 'slow_ball';
+                else if (r < 0.66) type = 'fast_ball';
+                
+                const x = 200 + Math.random() * (this.width - 400);
+                const y = 100 + Math.random() * (this.height - 200);
+                this.powerups.push(new PowerUp(x, y, type));
+            }
+
+            applyPowerup(type) {
+                const textEl = document.getElementById('powerup-text');
+                textEl.classList.remove('hidden');
+                
+                if (type === 'big_paddle') {
+                    textEl.textContent = "GIANT'S STRENGTH";
+                    this.paddles.forEach(p => p.height *= 1.5);
+                    setTimeout(() => this.paddles.forEach(p => p.height /= 1.5), 5000);
+                } else if (type === 'slow_ball') {
+                    textEl.textContent = "TIME WARP";
+                    this.ball.dx *= 0.5; this.ball.dy *= 0.5;
+                    setTimeout(() => { this.ball.dx *= 2; this.ball.dy *= 2; }, 3000);
+                } else if (type === 'fast_ball') {
+                    textEl.textContent = "JAGUAR SPEED";
+                    this.ball.dx *= 1.5; this.ball.dy *= 1.5;
+                    setTimeout(() => { this.ball.dx /= 1.5; this.ball.dy /= 1.5; }, 3000);
+                }
+
+                setTimeout(() => textEl.classList.add('hidden'), 2000);
+            }
+
+            createParticles(x, y, color) {
+                for (let i = 0; i < 12; i++) {
+                    this.particles.push(new Particle(x, y, color));
+                }
+            }
+
+            generateWinCode(winnerName) {
+                const timestamp = Date.now().toString(36).toUpperCase().substr(-4);
+                const randomPart = Math.random().toString(36).substr(2, 5).toUpperCase();
+                const prefix = winnerName.includes("WARRIOR") ? "P1" : "CPU";
+                return `TLACHTLI-${prefix}-${timestamp}-${randomPart}`;
+            }
+
+            checkWin() {
+                if (this.score1 >= this.winningScore || this.score2 >= this.winningScore) {
+                    this.state = 'gameover';
+                    
+                    // P1 is Left, P2 is Right (The Gods)
+                    const winnerName = this.score1 >= this.winningScore ? 'WARRIOR' : 'THE GODS';
+                    const winColor = this.score1 >= this.winningScore ? 'text-yellow-500' : 'text-red-500';
+                    
+                    const titleEl = document.getElementById('winner-text');
+                    titleEl.textContent = `${winnerName} PREVAILS!`;
+                    titleEl.className = `text-3xl mb-2 font-black tracking-widest ${winColor} stone-text`;
+
+                    // Reveal code if Player wins
+                    if (this.score1 >= this.winningScore) {
+                        const code = this.generateWinCode(winnerName);
+                        document.getElementById('secret-code').innerText = code;
+                        document.getElementById('winner-code-container').classList.remove('hidden');
+                    } else {
+                        document.getElementById('winner-code-container').classList.add('hidden');
+                    }
+
+                    document.getElementById('game-over').classList.remove('hidden');
+                    document.getElementById('hud').classList.add('hidden');
+                }
+            }
+
+            updateScoreUI() {
+                document.getElementById('score-1').innerText = this.score1;
+                document.getElementById('score-2').innerText = this.score2;
+            }
+
+            draw() {
+                this.ctx.fillStyle = '#44403c'; 
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Court markings
+                this.ctx.strokeStyle = '#292524';
+                this.ctx.lineWidth = 20;
+                this.ctx.beginPath();
+                this.ctx.arc(this.width/2, this.height/2, 80, 0, Math.PI*2);
+                this.ctx.stroke();
+                
+                this.ctx.strokeStyle = '#57534e';
+                this.ctx.lineWidth = 5;
+                this.ctx.beginPath();
+                this.ctx.arc(this.width/2, this.height/2, 80, 0, Math.PI*2);
+                this.ctx.stroke();
+
+                this.ctx.fillStyle = '#292524';
+                const rectSize = 20;
+                for(let y = 0; y < this.height; y+= rectSize*2) {
+                    this.ctx.fillRect(this.width/2 - rectSize/2, y, rectSize, rectSize);
+                }
+
+                if (this.state === 'menu') return;
+
+                this.paddles.forEach(p => p.draw(this.ctx));
+                this.ball.draw(this.ctx);
+                this.powerups.forEach(p => p.draw(this.ctx));
+                this.particles.forEach(p => p.draw(this.ctx));
+            }
+
+            loop(timestamp) {
+                const dt = timestamp - this.lastTime;
+                this.lastTime = timestamp;
+                this.update(dt);
+                this.draw();
+                requestAnimationFrame(this.loop);
+            }
+        }
+
+        class Paddle {
+            constructor(x, y, width, height, side) {
+                this.x = x; this.y = y; this.width = width; this.height = height; this.side = side; this.speed = 9;
+            }
+            move(dir, boundsHeight) {
+                this.y += dir * this.speed;
+                if (this.y < 0) this.y = 0;
+                if (this.y + this.height > boundsHeight) this.y = boundsHeight - this.height;
+            }
+            draw(ctx) {
+                ctx.fillStyle = '#a8a29e'; ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = '#d6d3d1'; ctx.fillRect(this.x, this.y, this.width, 4); ctx.fillRect(this.x, this.y, 4, this.height);
+                ctx.fillStyle = '#292524'; ctx.fillRect(this.x + this.width - 4, this.y, 4, this.height); ctx.fillRect(this.x, this.y + this.height - 4, this.width, 4);
+                ctx.fillStyle = this.side === 'left' ? '#059669' : '#dc2626';
+                ctx.fillRect(this.x + 6, this.y + 20, this.width - 12, this.height - 40);
+            }
+        }
+
+        class Ball {
+            constructor(x, y) { this.baseSpeed = 7; this.reset(x * 2, y * 2); }
+            reset(w, h) {
+                this.x = w / 2; this.y = h / 2; this.size = 16;
+                const dirX = Math.random() > 0.5 ? 1 : -1;
+                const dirY = (Math.random() * 2 - 1);
+                this.dx = dirX * this.baseSpeed; this.dy = dirY * this.baseSpeed;
+            }
+            update(dt, boundsHeight, game) {
+                this.x += this.dx; this.y += this.dy;
+                if (this.y <= 0) { this.y = 0; this.dy *= -1; if(game) game.createParticles(this.x, this.y, '#57534e'); }
+                if (this.y + this.size >= boundsHeight) { this.y = boundsHeight - this.size; this.dy *= -1; if(game) game.createParticles(this.x, this.y, '#57534e'); }
+            }
+            draw(ctx) {
+                ctx.fillStyle = '#1c1917'; ctx.beginPath(); ctx.arc(this.x + this.size/2, this.y + this.size/2, this.size/2, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#57534e'; ctx.beginPath(); ctx.arc(this.x + this.size/3, this.y + this.size/3, this.size/6, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        class PowerUp {
+            constructor(x, y, type) { this.x = x; this.y = y; this.size = 34; this.type = type; this.pulse = 0; }
+            draw(ctx) {
+                this.pulse += 0.1; const glow = Math.sin(this.pulse) * 5;
+                if (this.type === 'big_paddle') ctx.fillStyle = '#10b981'; else if (this.type === 'slow_ball') ctx.fillStyle = '#a855f7'; else ctx.fillStyle = '#f59e0b';
+                ctx.beginPath(); ctx.moveTo(this.x + this.size/2, this.y - glow); ctx.lineTo(this.x + this.size + glow, this.y + this.size/2); ctx.lineTo(this.x + this.size/2, this.y + this.size + glow); ctx.lineTo(this.x - glow, this.y + this.size/2); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = '14px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                let icon = ''; if (this.type === 'big_paddle') icon = '▲'; else if (this.type === 'slow_ball') icon = '⏳'; else icon = '⚡';
+                ctx.fillText(icon, this.x + this.size/2, this.y + this.size/2);
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) { this.x = x; this.y = y; this.color = color; this.size = Math.random() * 4 + 2; this.speedX = Math.random() * 6 - 3; this.speedY = Math.random() * 6 - 3; this.alpha = 1; }
+            update() { this.x += this.speedX; this.y += this.speedY; this.alpha -= 0.02; }
+            draw(ctx) { ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.size, this.size); ctx.restore(); }
+        }
+
+        const game = new Game();
+    </script>
+</body>
+</html>
