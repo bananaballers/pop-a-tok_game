@@ -1,0 +1,328 @@
+import pygame
+import sys
+import random
+import time
+
+pygame.init()
+
+# Window, to watch mama coco femboys
+WIDTH, HEIGHT = 900, 500
+WIN = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Pok-A-Tok Mini Game")
+
+# Colors
+STONE = (60, 50, 40)
+SAND = (210, 180, 130)
+GOLD = (240, 200, 70)
+WHITE = (230, 230, 230)
+RED = (240, 80, 80)
+
+# Gameplay constants
+PADDLE_W, PADDLE_H = 18, 120
+BALL_SIZE = 18
+PADDLE_SPEED = 6
+BALL_SPEED = 6
+AI_SPEED = 5
+REACTION_ERROR = 15
+
+GRAVITY = 0.4
+HIT_BOUNCE = 11
+
+FONT = pygame.font.SysFont("serif", 42, bold=True)
+PENALTY_FONT = pygame.font.SysFont("serif", 72, bold=True)
+
+# Paddles
+left_paddle = pygame.Rect(40, HEIGHT//2 - PADDLE_H//2, PADDLE_W, PADDLE_H)
+right_paddle = pygame.Rect(WIDTH - 40 - PADDLE_W, HEIGHT//2 - PADDLE_H//2, PADDLE_W, PADDLE_H)
+
+# Ball
+ball = pygame.Rect(WIDTH//2, HEIGHT//2, BALL_SIZE, BALL_SIZE)
+ball_z = 0
+ball_vz = 0
+ball_scoring = False
+score_timer = 0
+SCORE_COUNTDOWN = 3
+scoring_hoop = None
+
+# Hoops
+HOOP_RADIUS = 25
+HOOP_THICKNESS = 5
+HOOP_CENTER_TOP = (WIDTH//2, 60)
+HOOP_CENTER_BOTTOM = (WIDTH//2, HEIGHT - 60)
+
+# Ball movement
+ball_dx = BALL_SPEED
+ball_dy = BALL_SPEED
+
+# Score
+score_left = 0
+score_right = 0
+
+# Penalty
+penalty_message = ""
+penalty_time = 0
+PENALTY_DURATION = 1.0
+
+# Particles
+particles = []
+
+class Particle:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.vx = random.uniform(-2, 2)
+        self.vy = random.uniform(-1, -4)
+        self.life = random.randint(20, 40)
+        self.size = random.randint(2, 5)
+        self.color = (200, 180, 150)
+
+    def update(self):
+        self.x += self.vx
+        self.y += self.vy
+        self.vy += 0.3
+        self.life -= 1
+        self.size = max(0, self.size - 0.1)
+
+    def draw(self, surface):
+        if self.life > 0:
+            pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), int(self.size))
+
+def reset_ball(direction=None):
+    global ball_dx, ball_dy, ball_z, ball_vz
+    ball.x = WIDTH // 2
+    ball.y = HEIGHT // 2
+    ball_z = 0
+    ball_vz = 0
+    angle = random.uniform(-0.7, 0.7)
+    if direction == "left":
+        ball_dx = -BALL_SPEED
+    elif direction == "right":
+        ball_dx = BALL_SPEED
+    else:
+        ball_dx = random.choice([-1, 1]) * BALL_SPEED
+    ball_dy = angle * BALL_SPEED
+
+def move_paddles(keys):
+    if keys[pygame.K_w] and left_paddle.top > 0:
+        left_paddle.y -= PADDLE_SPEED
+    if keys[pygame.K_s] and left_paddle.bottom < HEIGHT:
+        left_paddle.y += PADDLE_SPEED
+
+    if ball.centerx > WIDTH // 2:
+        target_y = ball.centery + random.randint(-REACTION_ERROR, REACTION_ERROR)
+        if target_y < right_paddle.centery and right_paddle.top > 0:
+            right_paddle.y -= min(AI_SPEED, right_paddle.centery - target_y)
+        elif target_y > right_paddle.centery and right_paddle.bottom < HEIGHT:
+            right_paddle.y += min(AI_SPEED, target_y - right_paddle.centery)
+
+def draw_paddle_shadow(paddle, z=0):
+    shadow_width = paddle.width
+    shadow_height = paddle.height + int(z)
+    alpha = max(50, 200 - int(z / HIT_BOUNCE * 150))
+    shadow_surf = pygame.Surface((shadow_width, shadow_height), pygame.SRCALPHA)
+    pygame.draw.rect(shadow_surf, (0,0,0,alpha), (0,0,shadow_width,shadow_height), border_radius=8)
+    WIN.blit(shadow_surf, (paddle.x, paddle.y))
+
+def draw_ball_shadow():
+    shadow_min = int(BALL_SIZE * 0.7)
+    shadow_max = int(BALL_SIZE * 2.5)
+    shadow_size = int(shadow_min + min(ball_z / HIT_BOUNCE, 1) * (shadow_max - shadow_min))
+    alpha = max(50, 200 - int(ball_z / HIT_BOUNCE * 150))
+    shadow_surf = pygame.Surface((shadow_size, shadow_size), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow_surf, (0,0,0,alpha), (0,0,shadow_size,shadow_size))
+    WIN.blit(shadow_surf, (ball.x + BALL_SIZE/2 - shadow_size/2, ball.y + BALL_SIZE/2 - shadow_size/2))
+
+def draw_hoop_shadow(center, z=0):
+    shadow_size = HOOP_RADIUS*2 + int(z)
+    alpha = max(50, 200 - int(z / HIT_BOUNCE * 150))
+    shadow_surf = pygame.Surface((shadow_size, shadow_size), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow_surf, (0,0,0,alpha), (0,0,shadow_size,shadow_size))
+    WIN.blit(shadow_surf, (center[0]-shadow_size/2, center[1]-shadow_size/2))
+
+def draw_hoop(center):
+    pygame.draw.circle(WIN, GOLD, center, HOOP_RADIUS)
+    pygame.draw.circle(WIN, STONE, center, HOOP_RADIUS - HOOP_THICKNESS)
+
+def handle_hoop_shadow_pull():
+    global ball_z, ball_vz, ball_scoring, scoring_hoop, score_left, score_right
+
+    if ball_scoring:
+        return
+
+    shadow_rect_top = pygame.Rect(HOOP_CENTER_TOP[0]-HOOP_RADIUS, HOOP_CENTER_TOP[1]-HOOP_RADIUS,
+                                  HOOP_RADIUS*2, HOOP_RADIUS*2)
+    shadow_rect_bottom = pygame.Rect(HOOP_CENTER_BOTTOM[0]-HOOP_RADIUS, HOOP_CENTER_BOTTOM[1]-HOOP_RADIUS,
+                                     HOOP_RADIUS*2, HOOP_RADIUS*2)
+    ball_rect = pygame.Rect(ball.x, ball.y, BALL_SIZE, BALL_SIZE)
+
+    pull_strength = 0.05
+
+    if ball_rect.colliderect(shadow_rect_top):
+        ball.x += (HOOP_CENTER_TOP[0] - (ball.x + BALL_SIZE/2)) * pull_strength
+        ball.y += (HOOP_CENTER_TOP[1] - (ball.y + BALL_SIZE/2)) * pull_strength
+        ball_z = min(HIT_BOUNCE, ball_z + 1)
+        ball_vz = max(ball_vz, 2)
+        if abs((ball.x + BALL_SIZE/2) - HOOP_CENTER_TOP[0]) < 5 and abs((ball.y + BALL_SIZE/2) - HOOP_CENTER_TOP[1]) < 5:
+            score_left += 1
+            ball_scoring = True
+            scoring_hoop = HOOP_CENTER_TOP
+
+    if ball_rect.colliderect(shadow_rect_bottom):
+        ball.x += (HOOP_CENTER_BOTTOM[0] - (ball.x + BALL_SIZE/2)) * pull_strength
+        ball.y += (HOOP_CENTER_BOTTOM[1] - (ball.y + BALL_SIZE/2)) * pull_strength
+        ball_z = min(HIT_BOUNCE, ball_z + 1)
+        ball_vz = max(ball_vz, 2)
+        if abs((ball.x + BALL_SIZE/2) - HOOP_CENTER_BOTTOM[0]) < 5 and abs((ball.y + BALL_SIZE/2) - HOOP_CENTER_BOTTOM[1]) < 5:
+            score_right += 1
+            ball_scoring = True
+            scoring_hoop = HOOP_CENTER_BOTTOM
+
+def draw():
+    WIN.fill(STONE)
+    for i in range(0, HEIGHT, 40):
+        pygame.draw.rect(WIN, (90, 80, 60), (WIDTH//2 - 4, i, 8, 20))
+
+    # Shadows
+    draw_ball_shadow()
+    distance_left = max(0, abs(left_paddle.centery - (ball.y + BALL_SIZE/2)))
+    distance_right = max(0, abs(right_paddle.centery - (ball.y + BALL_SIZE/2)))
+    z_left = max(0, (100 - distance_left)/100 * 50)
+    z_right = max(0, (100 - distance_right)/100 * 50)
+    draw_paddle_shadow(left_paddle, z=z_left)
+    draw_paddle_shadow(right_paddle, z=z_right)
+    distance_top = max(0, abs(HOOP_CENTER_TOP[1] - (ball.y + BALL_SIZE/2)))
+    distance_bottom = max(0, abs(HOOP_CENTER_BOTTOM[1] - (ball.y + BALL_SIZE/2)))
+    z_top = max(0, (100 - distance_top)/100 * 50)
+    z_bottom = max(0, (100 - distance_bottom)/100 * 50)
+    draw_hoop_shadow(HOOP_CENTER_TOP, z=z_top)
+    draw_hoop_shadow(HOOP_CENTER_BOTTOM, z=z_bottom)
+
+    # Particles
+    for p in particles:
+        p.draw(WIN)
+
+    # Hoops and paddles
+    draw_hoop(HOOP_CENTER_TOP)
+    draw_hoop(HOOP_CENTER_BOTTOM)
+    pygame.draw.rect(WIN, SAND, left_paddle, border_radius=8)
+    pygame.draw.rect(WIN, SAND, right_paddle, border_radius=8)
+
+    # Ball
+    max_size = 30
+    min_size = BALL_SIZE
+    ball_scale = min_size + (ball_z / HIT_BOUNCE) * (max_size - min_size)
+    pygame.draw.ellipse(WIN, WHITE, (ball.x, ball.y, ball_scale, ball_scale))
+
+    # Score
+    score_text = FONT.render(f"{score_left}   |   {score_right}", True, GOLD)
+    WIN.blit(score_text, (WIDTH//2 - score_text.get_width()//2, 20))
+
+    # Penalty
+    global penalty_message, penalty_time
+    if penalty_message and time.time() - penalty_time < 1.0:
+        penalty_text = PENALTY_FONT.render(penalty_message, True, RED)
+        WIN.blit(penalty_text, (WIDTH//2 - penalty_text.get_width()//2, HEIGHT//2 - 50))
+    else:
+        penalty_message = ""
+
+    pygame.display.update()
+
+def handle_paddle_collision():
+    global ball_dx, ball_dy, ball_vz, ball_z
+    if ball.colliderect(left_paddle) and ball_z <= 0:
+        ball_dx = abs(ball_dx)
+        ball_vz = HIT_BOUNCE
+        hit_pos = ball.centery - left_paddle.centery
+        normalized = hit_pos / (PADDLE_H / 2)
+        ball_dy = normalized * BALL_SPEED
+    if ball.colliderect(right_paddle) and ball_z <= 0:
+        ball_dx = -abs(ball_dx)
+        ball_vz = HIT_BOUNCE
+        hit_pos = ball.centery - right_paddle.centery
+        normalized = hit_pos / (PADDLE_H / 2)
+        ball_dy = normalized * BALL_SPEED
+
+def handle_hoop_score():
+    pass  # Scoring handled by shadow pull now
+
+def check_penalty():
+    global penalty_message, penalty_time
+    if ball.x + BALL_SIZE >= WIDTH:
+        penalty_message = "PENALTY!"
+        penalty_time = time.time()
+        reset_ball(direction="left")
+    if ball.x <= 0:
+        penalty_message = "PENALTY!"
+        penalty_time = time.time()
+        reset_ball(direction="right")
+
+def game_loop():
+    global ball_dx, ball_dy, ball_z, ball_vz, ball_scoring, score_timer, scoring_hoop
+    clock = pygame.time.Clock()
+
+    while True:
+        clock.tick(60)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        keys = pygame.key.get_pressed()
+        move_paddles(keys)
+
+        if not ball_scoring:
+            ball.x += ball_dx
+            ball.y += ball_dy
+            ball_vz -= GRAVITY
+            ball_z += ball_vz
+
+            handle_hoop_shadow_pull()
+
+            # Bounce floor + particles
+            if ball_z < 0:
+                ball_z = 0
+                ball_vz *= -0.6
+                for _ in range(10):
+                    particles.append(Particle(ball.x + BALL_SIZE/2, ball.y + BALL_SIZE))
+
+            # Bounce walls
+            if ball.y <= 0:
+                ball.y = 0
+                ball_dy *= -1
+            if ball.y + BALL_SIZE >= HEIGHT:
+                ball.y = HEIGHT - BALL_SIZE
+                ball_dy *= -1
+
+        # Update particles, like mama coco
+        for p in particles[:]:
+            p.update()
+            if p.life <= 0:
+                particles.remove(p)
+
+        handle_paddle_collision()
+        check_penalty()
+        draw()
+
+        # Handle scoring countdown
+        if ball_scoring:
+            ball.x = scoring_hoop[0] - BALL_SIZE/2
+            ball.y = scoring_hoop[1] - BALL_SIZE/2
+            ball_z = 0
+            ball_dx = ball_dy = ball_vz = 0
+
+            if score_timer == 0:
+                score_timer = time.time()
+
+            countdown = SCORE_COUNTDOWN - int(time.time() - score_timer)
+            if countdown > 0:
+                countdown_text = FONT.render(str(countdown), True, GOLD)
+                WIN.blit(countdown_text, (WIDTH//2 - countdown_text.get_width()//2, HEIGHT//2 - 50))
+                pygame.display.update()
+            else:
+                reset_ball()
+                ball_scoring = False
+                score_timer = 0
+                scoring_hoop = None
+
+reset_ball()
+game_loop()
