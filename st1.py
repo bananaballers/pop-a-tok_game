@@ -32,22 +32,7 @@ def render_scene_media(scene_name):
             elif file.lower().endswith(('.mp4', '.mov', '.webm')):
                 st.video(file_path)
             elif file.lower().endswith(('.mp3', '.wav', '.ogg')):
-                # READ and ENCODE the audio file to base64
-                with open(file_path, "rb") as f:
-                    data = f.read()
-                    b64_data = base64.b64encode(data).decode()
-                    
-                    # Determine MIME type
-                    ext = os.path.splitext(file)[1].lower().replace('.', '')
-                    mime_type = "audio/mpeg" if ext == "mp3" else f"audio/{ext}"
-                    
-                    # HTML Audio Tag with autoplay and display:none
-                    md = f"""
-                    <audio autoplay="true" style="display:none;">
-                    <source src="data:{mime_type};base64,{b64_data}" type="{mime_type}\"></audio>
-                        """
-                        
-                    st.markdown(md, unsafe_allow_html=True)
+                st.audio(file_path)
                     
 def initialize_state():
         if "scene" not in st.session_state:
