@@ -45,7 +45,7 @@ def render_scene_media(scene_name):
                     md = f"""
                     <audio autoplay="true" style="display:none;">
                     <source src="data:{mime_type};base64,{b64_data}" type="{mime_type}\"></audio>
-                        ""
+                        """
                         
                     st.markdown(md, unsafe_allow_html=True)
                     
