@@ -46,7 +46,7 @@ def render_scene_media(scene_name, container=st):
     
                 # Inject hidden autoplay audio
                 audio_html = f"""
-                    <audio autoplay loop style="display:none;">
+                    <audio autoplay style="display:none;">
                         <source src="data:{mime};base64,{audio_base64}" type="{mime}">
                     </audio>
                 """
