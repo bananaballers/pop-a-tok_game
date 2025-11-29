@@ -36,8 +36,8 @@ def render_scene_media(scene_name, container=st):
             elif file.lower().endswith(('.mp3', '.wav', '.ogg')):
                 # Read audio file and convert to base64
                 with open(file_path, 'rb') as audio_file:
-                audio_bytes = audio_file.read()
-                audio_base64 = base64.b64encode(audio_bytes).decode()
+                    audio_bytes = audio_file.read()
+                    audio_base64 = base64.b64encode(audio_bytes).decode()
     
                 # Determine MIME type
                 ext = file.lower().split('.')[-1]
